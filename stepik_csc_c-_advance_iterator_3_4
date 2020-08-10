@@ -1,0 +1,138 @@
+#include <iostream>
+#include <vector>
+#include <list>
+#include <iterator>
+
+
+template<class T>
+class VectorList
+{
+private:
+    using VectT  = std::vector<T>;
+    using ListT = std::list<VectT>;
+
+public:
+    using value_type = T;
+
+    VectorList() = default;
+    VectorList(VectorList const &) = default;
+    VectorList(VectorList &&) = default;
+
+    VectorList & operator=(VectorList &&)     = default;
+    VectorList & operator=(VectorList const &) = default;
+
+    template<class It>
+    void append(It p, It q);
+
+    bool empty() const { return size() == 0; }
+
+    size_t size() const;
+
+    struct const_iterator : std::iterator<std::bidirectional_iterator_tag, const T> {
+    private:
+        typename ListT::const_iterator it_lt;
+        typename VectT::const_iterator it_vec;
+        const ListT* data_;
+
+        void init_begin() {
+            it_lt = data_->cbegin();
+            if( it_lt != data_->cend() ) it_vec = it_lt->cbegin();
+        }
+        void init_end() {
+            it_lt = data_->cend();
+            if( it_lt != data_->cbegin() ) {
+                it_lt--;
+                it_vec = it_lt->cend();
+                it_lt++;
+            }
+        }
+    public:
+
+        const_iterator() = default ;
+
+        explicit const_iterator(const ListT* dat, int i = 0) :data_(dat) {
+            if ( i == 0 ) init_begin();
+            if ( i != 0 ) init_end();
+        };
+
+        const_iterator(const const_iterator& iter) = default;
+
+        const_iterator& operator++() {
+            ++it_vec;
+            if (it_vec != it_lt->cend()) return *this;
+            ++it_lt;
+            if( it_lt != data_->cend() ) it_vec = it_lt->cbegin();
+            return *this;
+        };
+        const_iterator operator++(int) {
+            const_iterator tmp(*this);
+            ++(*this);
+            return tmp;
+        };
+
+        const_iterator& operator--() {
+            if (it_lt == data_->cend() && it_lt != data_->cbegin())  it_lt--;
+            if (it_vec != it_lt->cbegin()) {
+                --it_vec;
+                return *this;
+            }
+            if (it_lt != data_->cbegin()) {      // на что указывать до бегина?
+                --it_lt;
+                it_vec = it_lt->cend();
+                --it_vec;                       // обещали вектор не пустой
+            } else --it_vec;                    // game over
+            return *this;
+        };
+        const_iterator operator--(int) {
+            const_iterator tmp(*this);
+            --(*this);
+            return tmp;
+        };
+
+        bool operator== (const const_iterator& it) const {
+            return (it_lt == it.it_lt) && (it_vec == it.it_vec);
+        }
+        bool operator!= (const const_iterator& it) const {
+            return !(*this == it);
+        }
+
+        const T& operator*() const {
+            return *it_vec;
+        };
+
+        const T* operator->() const {
+            return &(*it_vec);
+        }
+
+    };
+
+    const_iterator begin() const {
+        const ListT* tmp = &data_;
+        return const_iterator(tmp);
+    }
+    const_iterator end()   const {
+        const ListT* tmp = &data_;
+        return const_iterator(tmp, 1);
+    }
+
+    // ------------- reverse
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    const_reverse_iterator rbegin() const {
+        return const_reverse_iterator(end());
+    }
+    const_reverse_iterator rend()   const {
+        return const_reverse_iterator(begin());
+    }
+
+private:
+    ListT data_;
+};
+
+
+template<class T>
+size_t VectorList<T>::size() const {
+    size_t size = 0;
+    for (auto& x:data_) size += x.size();
+    return size;
+}
